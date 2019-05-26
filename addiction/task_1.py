@@ -69,6 +69,7 @@ class ActorCritic():
         """train and return logs"""
         actor = self.actor_class(env)
         critic = self.critic_class(env)
+        td_log = []
 
         for e in range(max_episode):
             state = 0
@@ -83,6 +84,7 @@ class ActorCritic():
                     td = max(gain - estimated + env.dopamine, env.dopamine)
                 else:
                     td = gain - estimated
+                td_log.append([e, state, td])
                 if action in [1, 2]:
                     actor.Q[action - 1] += lr * td 
                 critic.V[state] += lr * td
@@ -92,33 +94,49 @@ class ActorCritic():
                     critic.log()
                 state = next_state
 
-        return actor.actor_log, critic.critic_log
+        return actor.actor_log, critic.critic_log, td_log
 
-def train_ac(max_episode=200, rewards=[0.0, 0.0, 0.0, 1.0, 0.8, 0.0], dopamine=0.2):
+def train_ac(max_episode=200, rewards=[0.0, 0.0, 0.0, 1.0, 0.8, 0.0], dopamine=0.1):
     """wrapper function of train"""
     trainer = ActorCritic(AddictedActor, AddictedCritic)
     env = DrugOrTreat(rewards=rewards, dopamine=dopamine)
     return trainer.train(env, max_episode=max_episode)
 
 if __name__ == "__main__":
-    NUM_ITER = 1000
-    actor_log, critic_log = train_ac(NUM_ITER)
+    NUM_ITER = 300
+    actor_log, critic_log, td_log = train_ac(NUM_ITER)
 
-    x = np.arange(NUM_ITER)
-    fig = plt.figure(figsize=(10, 5))
-    ax1 = fig.add_subplot(1, 2, 1)
-    ax1.plot(x, [a[0] for a in actor_log], color='g', label='normal')
-    ax1.plot(x, [a[1] for a in actor_log], color='b', label='drug')
-    ax1.legend()
-    ax1.set_xlabel("Episode")
-    ax1.set_ylabel("Cumulative number of actions")
-    ax2 = fig.add_subplot(1, 2, 2)
-    ax2.plot(x, [a[0] for a in critic_log], color='g', label='S0')
-    ax2.plot(x, [a[1] for a in critic_log], color='b', label='S1')
-    ax2.plot(x, [a[2] for a in critic_log], color='r', label='S2')
-    ax2.plot(x, [a[3] for a in critic_log], color='y', label='S3')
-    ax2.plot(x, [a[4] for a in critic_log], color='c', label='S4')
-    ax2.legend()
-    ax2.set_xlabel("Episode")
-    ax2.set_ylabel("Value")
+    early = [[] for _ in range(5)]
+    middle = [[] for _ in range(5)]
+    late = [[] for _ in range(5)]
+
+    for td in td_log:
+        if td[0] in range(0, 100) and td[1] < 5:
+            early[td[1]].append(td[2])
+        if td[0] in range(100, 200) and td[1] < 5:
+            middle[td[1]].append(td[2])
+        if td[0] in range(200, 300) and td[1] < 5:
+            late[td[1]].append(td[2])
+
+    early = [sum(l)/len(l) for l in early]
+    middle = [sum(l)/len(l) for l in middle]
+    late = [sum(l)/len(l) for l in late]
+
+    x = ['S0', 'S1', 'S2', 'S3', 'S4']
+    fig = plt.figure(figsize=(15, 5))
+    ax1 = fig.add_subplot(1, 3, 1)
+    ax1.bar(x, early, color='g')
+    ax1.set_xlabel("State")
+    ax1.set_ylabel("TD Error in early stage(0-100)")
+    ax1.set_ylim(0, 0.3)
+    ax2 = fig.add_subplot(1, 3, 2)
+    ax2.bar(x, middle, color='g')
+    ax2.set_xlabel("State")
+    ax2.set_ylabel("TD Error in early stage(100-200)")
+    ax2.set_ylim(0, 0.3)
+    ax3 = fig.add_subplot(1, 3, 3)
+    ax3.bar(x, late, color='g')
+    ax3.set_xlabel("State")
+    ax3.set_ylabel("TD Error in late stage(200-300)")
+    ax3.set_ylim(0, 0.3)
     plt.show()

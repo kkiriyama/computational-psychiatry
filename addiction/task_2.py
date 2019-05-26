@@ -85,7 +85,7 @@ class ActorCritic():
         actor = self.actor_class(env)
         critic = self.critic_class(env)
 
-        for e in range(max_episode):
+        for e in tqdm(range(max_episode)):
             state = 0
             done = False
             while not done:
@@ -102,7 +102,7 @@ class ActorCritic():
                     else:
                         td = gain - estimated
 
-                    actor.B[state] += 0.3 * td
+                    actor.B[state] = 0.01 * actor.B[state] + 0.99 * td
                     critic.V[state] += lr * td
                     actor.log(state)
                     if state in [3, 4]:
@@ -115,7 +115,7 @@ def train_ac(
     max_episode=200,
     rewards=[0.0, 0.0, 0.0, 1.0, 0.8, 0.0],
     delays=[0, 3, 3, 1, 1, 20],
-    gamma=0.8,
+    gamma=0.5,
     dopamine=0.025
     ):
     """wrapper function of train"""
@@ -125,7 +125,7 @@ def train_ac(
 
 if __name__ == "__main__":
     NUM_ITER = 1000
-    NUM_SIMULATIONS = 20
+    NUM_SIMULATIONS = 1
     alternative_ratios = [0.25, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
 
     action_ratio_light_addicted = []
